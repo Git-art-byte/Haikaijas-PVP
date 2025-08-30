@@ -562,7 +562,7 @@ buttonDefinitions.redzhub = {
     name = "REDZHUB☠️",
     callback = function(button)
         -- Load RedzHub script
-        loadstring(game:HttpGet("https://raw.githubusercontent.com/tlredz/Scripts/refs/heads/main/main.luau"))()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/LuaCrack/DatThg/refs/heads/main/DatThgV2"))()
     end
 }
 
