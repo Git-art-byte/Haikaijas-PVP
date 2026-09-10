@@ -110,12 +110,35 @@ layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
     scrollFrame.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y)
 end)
 
+-- ==================== HELPERS ====================
+-- Robust level getter (handles Data.Level being a number OR a ValueObject)
+local function getPlayerLevel(player)
+    local level = nil
+    pcall(function()
+        local data = player:FindFirstChild("Data")
+        if data then
+            local lvl = data:FindFirstChild("Level")
+            if lvl then
+                if typeof(lvl) == "Instance" and (lvl:IsA("IntValue") or lvl:IsA("NumberValue") or lvl:IsA("StringValue")) then
+                    level = lvl.Value
+                else
+                    level = lvl
+                end
+            end
+        end
+    end)
+    return level
+end
+
 -- ==================== FEATURE DEFINITIONS ====================
 local buttonDefinitions = {}
 
--- ESP Feature (loop-based)
+-- ESP Feature (loop-based, live level update)
 buttonDefinitions.esp = {
     name = "ESP: OFF",
+    enabled = false,
+    objects = {},
+    connection = nil,
     callback = function(button)
         if not buttonDefinitions.esp.enabled then
             buttonDefinitions.esp.enabled = true
@@ -124,74 +147,67 @@ buttonDefinitions.esp = {
 
             local function createESP(player)
                 if buttonDefinitions.esp.objects[player] or player == LocalPlayer then return end
-                if player.Character then
-                    local highlight = Instance.new("Highlight")
-                    highlight.FillTransparency = 1
-                    highlight.OutlineColor = Color3.fromRGB(0, 255, 0)
-                    highlight.OutlineTransparency = 0
-                    highlight.Parent = player.Character
-                    highlight.Adornee = player.Character
+                if not player.Character then return end
+                local head = player.Character:FindFirstChild("Head")
+                if not head then return end
 
-                    local billboard = Instance.new("BillboardGui")
-                    billboard.Name = "ZenoESP"
-                    billboard.Adornee = player.Character:WaitForChild("Head")
-                    billboard.Size = UDim2.new(0, 150, 0, 40)
-                    billboard.StudsOffset = Vector3.new(0, 2.5, 0)
-                    billboard.AlwaysOnTop = true
-                    billboard.MaxDistance = math.huge
-                    billboard.Parent = player.Character
+                local highlight = Instance.new("Highlight")
+                highlight.FillTransparency = 1
+                highlight.OutlineColor = Color3.fromRGB(0, 255, 0)
+                highlight.OutlineTransparency = 0
+                highlight.Parent = player.Character
+                highlight.Adornee = player.Character
 
-                    local nameLabel = Instance.new("TextLabel")
-                    nameLabel.Name = "PlayerName"
-                    nameLabel.Size = UDim2.new(1, 0, 0.5, 0)
-                    nameLabel.BackgroundTransparency = 1
-                    nameLabel.Text = player.Name
-                    nameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-                    nameLabel.TextStrokeTransparency = 0
-                    nameLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
-                    nameLabel.Font = Enum.Font.GothamBold
-                    nameLabel.TextSize = 12
-                    nameLabel.Parent = billboard
+                local billboard = Instance.new("BillboardGui")
+                billboard.Name = "ZenoESP"
+                billboard.Adornee = head
+                billboard.Size = UDim2.new(0, 150, 0, 40)
+                billboard.StudsOffset = Vector3.new(0, 2.5, 0)
+                billboard.AlwaysOnTop = true
+                billboard.MaxDistance = math.huge
+                billboard.Parent = player.Character
 
-                    local levelLabel = Instance.new("TextLabel")
-                    levelLabel.Name = "PlayerLevel"
-                    levelLabel.Size = UDim2.new(1, 0, 0.5, 0)
-                    levelLabel.Position = UDim2.new(0, 0, 0.5, 0)
-                    levelLabel.BackgroundTransparency = 1
-                    local level = "N/A"
-                    pcall(function()
-                        if player.Data and player.Data.Level then
-                            level = tostring(player.Data.Level)
-                        end
-                    end)
-                    levelLabel.Text = "Lv. " .. level
-                    levelLabel.TextColor3 = Color3.fromRGB(255, 255, 0)
-                    levelLabel.TextStrokeTransparency = 0
-                    levelLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
-                    levelLabel.Font = Enum.Font.GothamBold
-                    levelLabel.TextSize = 10
-                    levelLabel.Parent = billboard
+                local nameLabel = Instance.new("TextLabel")
+                nameLabel.Name = "PlayerName"
+                nameLabel.Size = UDim2.new(1, 0, 0.5, 0)
+                nameLabel.BackgroundTransparency = 1
+                nameLabel.Text = player.Name
+                nameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+                nameLabel.TextStrokeTransparency = 0
+                nameLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+                nameLabel.Font = Enum.Font.GothamBold
+                nameLabel.TextSize = 12
+                nameLabel.Parent = billboard
 
-                    buttonDefinitions.esp.objects[player] = {
-                        Highlight = highlight,
-                        Billboard = billboard
-                    }
-                end
+                local levelLabel = Instance.new("TextLabel")
+                levelLabel.Name = "PlayerLevel"
+                levelLabel.Size = UDim2.new(1, 0, 0.5, 0)
+                levelLabel.Position = UDim2.new(0, 0, 0.5, 0)
+                levelLabel.BackgroundTransparency = 1
+                local lvl = getPlayerLevel(player)
+                levelLabel.Text = lvl and ("Lv. " .. tostring(lvl)) or "Lv. ?"
+                levelLabel.TextColor3 = Color3.fromRGB(255, 255, 0)
+                levelLabel.TextStrokeTransparency = 0
+                levelLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+                levelLabel.Font = Enum.Font.GothamBold
+                levelLabel.TextSize = 10
+                levelLabel.Parent = billboard
+
+                buttonDefinitions.esp.objects[player] = {
+                    Highlight = highlight,
+                    Billboard = billboard
+                }
             end
 
             local function removeESP(player)
-                if buttonDefinitions.esp.objects[player] then
-                    if buttonDefinitions.esp.objects[player].Highlight then
-                        buttonDefinitions.esp.objects[player].Highlight:Destroy()
-                    end
-                    if buttonDefinitions.esp.objects[player].Billboard then
-                        buttonDefinitions.esp.objects[player].Billboard:Destroy()
-                    end
+                local data = buttonDefinitions.esp.objects[player]
+                if data then
+                    if data.Highlight then data.Highlight:Destroy() end
+                    if data.Billboard then data.Billboard:Destroy() end
                     buttonDefinitions.esp.objects[player] = nil
                 end
             end
 
-            -- Loop to continuously update ESP
             buttonDefinitions.esp.connection = RunService.RenderStepped:Connect(function()
                 if not buttonDefinitions.esp.enabled then return end
                 for _, player in ipairs(Players:GetPlayers()) do
@@ -199,6 +215,16 @@ buttonDefinitions.esp = {
                         if player.Character and player.Character:FindFirstChild("Head") then
                             if not buttonDefinitions.esp.objects[player] then
                                 createESP(player)
+                            end
+
+                            -- Live-update level label
+                            local espData = buttonDefinitions.esp.objects[player]
+                            if espData and espData.Billboard then
+                                local lvlLabel = espData.Billboard:FindFirstChild("PlayerLevel")
+                                if lvlLabel then
+                                    local lvl = getPlayerLevel(player)
+                                    lvlLabel.Text = lvl and ("Lv. " .. tostring(lvl)) or "Lv. ?"
+                                end
                             end
                         else
                             removeESP(player)
@@ -213,7 +239,6 @@ buttonDefinitions.esp = {
                     createESP(player)
                 end
             end
-
         else
             buttonDefinitions.esp.enabled = false
             button.Text = "ESP: OFF"
@@ -227,10 +252,7 @@ buttonDefinitions.esp = {
             end
             buttonDefinitions.esp.objects = {}
         end
-    end,
-    enabled = false,
-    objects = {},
-    connection = nil
+    end
 }
 
 -- Speed Feature
@@ -289,10 +311,10 @@ buttonDefinitions.speed = {
 
 -- Wallwalk Feature
 buttonDefinitions.wallwalk = {
-    name = "WALLWALKER: OFF",
+    name = "NOCLIP: OFF",
     callback = function(button)
         buttonDefinitions.wallwalk.enabled = not buttonDefinitions.wallwalk.enabled
-        button.Text = buttonDefinitions.wallwalk.enabled and "WALLWALKER: ON" or "WALLWALKER: OFF"
+        button.Text = buttonDefinitions.wallwalk.enabled and "NOCLIP: ON" or "NOCLIP: OFF"
         if buttonDefinitions.wallwalk.enabled then
             if buttonDefinitions.wallwalk.connection then
                 buttonDefinitions.wallwalk.connection:Disconnect()
@@ -525,7 +547,7 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
--- ==================== CREATE BUTTONS FROM DEFINITIONS ====================
+-- ==================== CREATE BUTTONS ====================
 for _, definition in pairs(buttonDefinitions) do
     createBtn(definition.name, definition.callback)
 end
