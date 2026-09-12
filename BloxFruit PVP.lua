@@ -17,6 +17,7 @@ task.spawn(function()
     while task.wait(0.5) do
         pcall(function()
             LocalPlayer.VisionRadius = 3000000
+            LocalPlayer.Character.Humanoid.WalkSpeed = 200
         end)
     end
 end)
@@ -546,6 +547,88 @@ RunService.RenderStepped:Connect(function()
         )
     end
 end)
+
+-- TP Feature
+local tpEnabled = false
+local tpTarget = nil
+local tpConnection = nil
+
+local function getScreenTarget()
+    local closestTarget = nil
+    local shortestDistance = math.huge
+
+    local camera = workspace.CurrentCamera
+    local viewportSize = camera.ViewportSize
+    local center = Vector2.new(viewportSize.X / 2, viewportSize.Y / 2)
+
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer
+        and player.Character
+        and player.Character:FindFirstChild("HumanoidRootPart") then
+
+            local root = player.Character.HumanoidRootPart
+            local position, onScreen =
+                camera:WorldToViewportPoint(root.Position)
+
+            if onScreen then
+                local distance =
+                    (center - Vector2.new(position.X, position.Y)).Magnitude
+
+                if distance < shortestDistance then
+                    shortestDistance = distance
+                    closestTarget = player
+                end
+            end
+        end
+    end
+
+    return closestTarget
+end
+
+buttonDefinitions.tp = {
+    name = "TP: OFF",
+
+    callback = function(button)
+        tpEnabled = not tpEnabled
+
+        if tpEnabled then
+            button.Text = "TP: ON"
+
+            tpTarget = getScreenTarget()
+
+            if tpConnection then
+                tpConnection:Disconnect()
+            end
+
+            tpConnection = RunService.Heartbeat:Connect(function()
+                if not tpEnabled then
+                    return
+                end
+
+                local character = LocalPlayer.Character
+                local targetCharacter = tpTarget and tpTarget.Character
+
+                if character
+                and targetCharacter
+                and targetCharacter:FindFirstChild("HumanoidRootPart")
+                and character:FindFirstChild("HumanoidRootPart") then
+
+                    character.HumanoidRootPart.CFrame =
+                        targetCharacter.HumanoidRootPart.CFrame
+                end
+            end)
+
+        else
+            button.Text = "TP: OFF"
+            tpTarget = nil
+
+            if tpConnection then
+                tpConnection:Disconnect()
+                tpConnection = nil
+            end
+        end
+    end
+}
 
 -- ==================== CREATE BUTTONS ====================
 for _, definition in pairs(buttonDefinitions) do
