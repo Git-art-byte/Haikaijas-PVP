@@ -16,8 +16,8 @@ local LocalPlayer = Players.LocalPlayer
 task.spawn(function()
     while task.wait(0.5) do
         pcall(function()
-            LocalPlayer.VisionRadius = 3000000
-            LocalPlayer.Character.Humanoid.WalkSpeed = 200
+            LocalPlayer.VisionRadius.Value = 3000000
+            LocalPlayer.Character.Humanoid.WalkSpeed.Value = 200
         end)
     end
 end)
